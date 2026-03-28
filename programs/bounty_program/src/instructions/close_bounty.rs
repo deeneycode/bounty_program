@@ -1,6 +1,6 @@
-use anchor_lang::prelude::*;
-use crate::state::*;
 use crate::errors::BountyError;
+use crate::state::*;
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct CloseBounty<'info> {
@@ -14,9 +14,7 @@ pub struct CloseBounty<'info> {
     pub creator: Signer<'info>,
 }
 
-pub fn handler(
-    ctx: Context<CloseBounty>,
-) -> Result<()> {
+pub fn handler(ctx: Context<CloseBounty>) -> Result<()> {
     let bounty: &mut Account<'_, Bounty> = &mut ctx.accounts.bounty;
 
     require!(
@@ -29,6 +27,6 @@ pub fn handler(
     );
 
     bounty.status = BountyStatus::Closed;
-    
+
     Ok(())
-}   
+}

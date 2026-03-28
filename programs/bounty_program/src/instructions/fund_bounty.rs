@@ -1,5 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::state::*;
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct FundBounty<'info> {
@@ -10,10 +10,7 @@ pub struct FundBounty<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(
-    ctx: Context<FundBounty>,
-    amount: u64,
-) -> Result<()> {
+pub fn handler(ctx: Context<FundBounty>, amount: u64) -> Result<()> {
     let create_instruction = anchor_lang::solana_program::system_instruction::transfer(
         &ctx.accounts.funder.key(),
         &ctx.accounts.bounty.key(),
@@ -29,4 +26,3 @@ pub fn handler(
 
     Ok(())
 }
-

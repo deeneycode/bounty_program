@@ -14,7 +14,6 @@ impl Bounty {
     pub const LEN: usize = 8 + 32 + 8 + 8 + 1 + 1; // discriminator + creator + bounty_id + reward + status + bump
 }
 
-
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub enum BountyStatus {
     Open,
