@@ -7,6 +7,7 @@ pub mod errors;
 
 use crate::instructions::*;
 
+
 declare_id!("C2yr5N11oGn4k2gvKwwvvA7nffZE8vYuP94NLch1YbA4");
 
 #[program]

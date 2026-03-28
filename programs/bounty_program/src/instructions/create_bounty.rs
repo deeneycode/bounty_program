@@ -20,6 +20,7 @@ pub struct CreateBounty<'info> {
 
     #[account(mut)]
     pub creator: Signer<'info>,
+    /// CHECK: This account is only used to store the claimant's pubkey, no data is read or written
     pub claimant: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
