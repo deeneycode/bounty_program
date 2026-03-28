@@ -20,7 +20,7 @@ pub struct CreateBounty<'info> {
 
     #[account(mut)]
     pub creator: Signer<'info>,
-
+    pub claimant: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -31,6 +31,7 @@ pub fn handler(
 ) -> Result<()> {
     let bounty: &mut Account<'_, Bounty> = &mut ctx.accounts.bounty;
     bounty.creator = ctx.accounts.creator.key();
+    bounty.claimant = ctx.accounts.claimant.key();
     bounty.bounty_id = bounty_id;
     bounty.reward = reward;
     bounty.status = BountyStatus::Open;
