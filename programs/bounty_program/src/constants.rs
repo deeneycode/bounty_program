@@ -1,0 +1,1 @@
+pub const BOUNTY_SEED: &[u8] = b"bounty";
