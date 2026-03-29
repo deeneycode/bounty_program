@@ -13,4 +13,7 @@ pub enum BountyError {
 
     #[msg("Bounty reward must be greater than zero")]
     ZeroClaim,
+
+    #[msg("Bounty is not open")]
+    NotOpen,
 }

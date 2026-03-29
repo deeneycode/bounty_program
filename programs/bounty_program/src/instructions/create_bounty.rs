@@ -1,6 +1,7 @@
 use crate::constants::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 #[derive(Accounts)]
 #[instruction(bounty_id: u64)]
@@ -18,11 +19,26 @@ pub struct CreateBounty<'info> {
     )]
     pub bounty: Account<'info, Bounty>,
 
+    /// Vault token account owed by the bounty PDA to holds escrowed tokens
+    #[account(
+        init,
+        payer = creator,
+        token::mint = mint,
+        token::authority = bounty, // PDA is the authority of the vault account
+        seeds = [
+            VAULT_SEED, bounty.key().as_ref()],
+        bump
+    )]
+    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+
     #[account(mut)]
     pub creator: Signer<'info>,
     /// CHECK: This account is only used to store the claimant's pubkey, no data is read or written
     pub claimant: UncheckedAccount<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 pub fn handler(ctx: Context<CreateBounty>, bounty_id: u64, reward: u64) -> Result<()> {
@@ -32,6 +48,8 @@ pub fn handler(ctx: Context<CreateBounty>, bounty_id: u64, reward: u64) -> Resul
     bounty.bounty_id = bounty_id;
     bounty.reward = reward;
     bounty.status = BountyStatus::Open;
+    bounty.mint = ctx.accounts.mint.key();
+    bounty.vault = ctx.accounts.vault.key();
     bounty.bump = ctx.bumps.bounty;
 
     Ok(())
@@ -43,19 +61,21 @@ mod tests {
 
     #[test]
     fn test_bounty_state() {
-    let bounty = Bounty {
-        creator: Pubkey::default(),
-        claimant: Pubkey::default(),
-        bounty_id: 0,
-        reward: 0,
-        status: BountyStatus::Open,
-        bump: 0,
-    };
-    assert!(bounty.creator == Pubkey::default());
-    assert!(bounty.claimant == Pubkey::default());
-    assert!(bounty.bounty_id == 0);
-    assert!(bounty.reward == 0);
-    assert!(bounty.status == BountyStatus::Open);
-    assert!(bounty.bump == 0);
+        let bounty = Bounty {
+            creator: Pubkey::default(),
+            claimant: Pubkey::default(),
+            bounty_id: 0,
+            reward: 0,
+            status: BountyStatus::Open,
+            bump: 0,
+            mint: Pubkey::default(),
+            vault: Pubkey::default(),
+        };
+        assert!(bounty.creator == Pubkey::default());
+        assert!(bounty.claimant == Pubkey::default());
+        assert!(bounty.bounty_id == 0);
+        assert!(bounty.reward == 0);
+        assert!(bounty.status == BountyStatus::Open);
+        assert!(bounty.bump == 0);
     }
 }

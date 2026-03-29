@@ -1,15 +1,42 @@
+use crate::constants::*;
 use crate::errors::BountyError;
 use crate::state::*;
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{
+    self, CloseAccount, Mint, TokenAccount, TokenInterface, TransferChecked,
+};
 
 #[derive(Accounts)]
 pub struct ClaimBounty<'info> {
-    #[account(mut, close = creator)]
+    #[account(
+        mut, 
+        close = creator,
+        has_one = creator,
+        has_one = vault,
+        has_one = mint,
+    )]
     pub bounty: Account<'info, Bounty>,
+
+    /// Vault token account — source of escrowed tokens
+    #[account(mut)]
+    pub vault: InterfaceAccount<'info, TokenAccount>,
+
+    /// Claimant's token account (destination)
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = claimant,
+    )]
+    pub claimant_token_account: InterfaceAccount<'info, TokenAccount>,
+
     #[account(mut)]
     pub creator: SystemAccount<'info>,
+
     #[account(mut)]
     pub claimant: Signer<'info>,
+
+    pub mint: InterfaceAccount<'info, Mint>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handler(ctx: Context<ClaimBounty>) -> Result<()> {
@@ -23,28 +50,53 @@ pub fn handler(ctx: Context<ClaimBounty>) -> Result<()> {
         bounty_info.claimant == ctx.accounts.claimant.key(),
         BountyError::Unauthorized
     );
-    // update the bounty stutus to claimed
-    let data_len: usize = bounty_info.to_account_info().data_len();
+
+    let amount: u64 = ctx.accounts.vault.amount;
+    let decimals: u8 = ctx.accounts.mint.decimals;
+    require!(amount > 0, BountyError::ZeroClaim);
+
+    // PDA signer seeds- the bounty PDA is the vault authority
+    let creator_key: [u8; 32] = bounty_info.creator.to_bytes();
+    let bounty_id: [u8; 8] = bounty_info.bounty_id.to_le_bytes();
+    let seeds: &[&[u8]] = &[
+        BOUNTY_SEED,
+        creator_key.as_ref(),
+        bounty_id.as_ref(),
+        &[bounty_info.bump],
+    ];
+
+    // Transfer token form vault to claimants token account
+    let transfer_accounts: TransferChecked<'_> = TransferChecked {
+        from: ctx.accounts.vault.to_account_info(),
+        to: ctx.accounts.claimant_token_account.to_account_info(),
+        authority: bounty_info.to_account_info(),
+        mint: ctx.accounts.mint.to_account_info(),
+    };
+
+    token_interface::transfer_checked(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_accounts,
+            &[seeds],
+        ),
+        amount,
+        decimals,
+    )?;
+
+    // Close the vault token account — lamports go to creator
+    let close_accounts = CloseAccount {
+        account: ctx.accounts.vault.to_account_info(),
+        destination: ctx.accounts.creator.to_account_info(),
+        authority: bounty_info.to_account_info(),
+    };
+    token_interface::close_account(CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        close_accounts,
+        &[seeds],
+    ))?;
+
+    // update bounty state to claimed
     bounty_info.status = BountyStatus::Claimed;
-
-    // handle lamports transfer
-    let bounty_info: AccountInfo<'_> = ctx.accounts.bounty.to_account_info();
-    let total: u64 = **bounty_info.lamports.borrow();
-    require!(total > 0, BountyError::ZeroClaim);
-
-    let rent: u64 = Rent::get()?.minimum_balance(data_len);
-    let reward: u64 = total.checked_sub(rent).ok_or(BountyError::ZeroClaim)?;
-
-    **bounty_info.lamports.borrow_mut() -= reward;
-    **ctx
-        .accounts
-        .claimant
-        .to_account_info()
-        .lamports
-        .borrow_mut() += reward;
-
-    **bounty_info.lamports.borrow_mut() -= rent;
-    **ctx.accounts.creator.to_account_info().lamports.borrow_mut() += rent;
 
     Ok(())
 }
@@ -60,8 +112,10 @@ mod tests {
             claimant: Pubkey::default(),
             bounty_id: 0,
             reward: 0,
-            status: BountyStatus::Open, 
+            status: BountyStatus::Open,
             bump: 0,
+            mint: Pubkey::default(),
+            vault: Pubkey::default(),
         };
         assert!(bounty.status == BountyStatus::Open);
         assert!(bounty.claimant == Pubkey::default());
@@ -76,6 +130,8 @@ mod tests {
             reward: 0,
             status: BountyStatus::Claimed,
             bump: 0,
+            mint: Pubkey::default(),
+            vault: Pubkey::default(),
         };
         assert!(bounty.status == BountyStatus::Claimed);
     }
