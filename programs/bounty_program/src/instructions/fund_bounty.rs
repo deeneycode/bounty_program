@@ -1,7 +1,7 @@
 use crate::errors::BountyError;
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl::token::{self, Mint, TokenAccount, Token, TransferChecked};
 
 #[derive(Accounts)]
 pub struct FundBounty<'info> {
@@ -13,7 +13,7 @@ pub struct FundBounty<'info> {
     token::mint = mint,
     token::authority = funder,
     )]
-    pub funder_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub funder_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
@@ -24,10 +24,10 @@ pub struct FundBounty<'info> {
 
     /// Vault token account (destination for the transfer, owed by bounty PDA)
     #[account(mut)]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub vault: Account<'info, TokenAccount>,
 
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handler(ctx: Context<FundBounty>, amount: u64) -> Result<()> {
@@ -46,7 +46,7 @@ pub fn handler(ctx: Context<FundBounty>, amount: u64) -> Result<()> {
     let cpi_ctx: CpiContext<'_, '_, '_, '_, TransferChecked<'_>> =
         CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
 
-    token_interface::transfer_checked(cpi_ctx, amount, decimals)?;
+    token::transfer_checked(cpi_ctx, amount, decimals)?;
 
     Ok(())
 }

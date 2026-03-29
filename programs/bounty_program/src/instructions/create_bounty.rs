@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token::{Mint, TokenAccount, Token};
 
 #[derive(Accounts)]
 #[instruction(bounty_id: u64)]
@@ -29,14 +29,14 @@ pub struct CreateBounty<'info> {
             VAULT_SEED, bounty.key().as_ref()],
         bump
     )]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub vault: Account<'info, TokenAccount>,
+    pub mint: Account<'info, Mint>,
 
     #[account(mut)]
     pub creator: Signer<'info>,
     /// CHECK: This account is only used to store the claimant's pubkey, no data is read or written
     pub claimant: UncheckedAccount<'info>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }

@@ -2,9 +2,7 @@ use crate::constants::*;
 use crate::errors::BountyError;
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{
-    self, CloseAccount, Mint, TokenAccount, TokenInterface, TransferChecked,
-};
+use anchor_spl::token::{self, CloseAccount, Mint, TokenAccount, Token, TransferChecked};
 
 #[derive(Accounts)]
 pub struct ClaimBounty<'info> {
@@ -19,7 +17,7 @@ pub struct ClaimBounty<'info> {
 
     /// Vault token account — source of escrowed tokens
     #[account(mut)]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub vault: Account<'info, TokenAccount>,
 
     /// Claimant's token account (destination)
     #[account(
@@ -27,7 +25,7 @@ pub struct ClaimBounty<'info> {
         token::mint = mint,
         token::authority = claimant,
     )]
-    pub claimant_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub claimant_token_account: Account<'info, TokenAccount>,
 
     #[account(mut)]
     pub creator: SystemAccount<'info>,
@@ -35,8 +33,8 @@ pub struct ClaimBounty<'info> {
     #[account(mut)]
     pub claimant: Signer<'info>,
 
-    pub mint: InterfaceAccount<'info, Mint>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handler(ctx: Context<ClaimBounty>) -> Result<()> {
@@ -73,7 +71,7 @@ pub fn handler(ctx: Context<ClaimBounty>) -> Result<()> {
         mint: ctx.accounts.mint.to_account_info(),
     };
 
-    token_interface::transfer_checked(
+    token::transfer_checked(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             transfer_accounts,
@@ -89,7 +87,7 @@ pub fn handler(ctx: Context<ClaimBounty>) -> Result<()> {
         destination: ctx.accounts.creator.to_account_info(),
         authority: bounty_info.to_account_info(),
     };
-    token_interface::close_account(CpiContext::new_with_signer(
+    token::close_account(CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         close_accounts,
         &[seeds],
