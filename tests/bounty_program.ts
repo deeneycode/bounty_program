@@ -136,9 +136,6 @@ describe("bounty", () => {
   beforeEach(async () => {
     [bountyPda] = getBountyPDA(creator.publicKey, bountyId, program.programId);
     [vaultPda]  = getVaultPDA(bountyPda, program.programId);
-
-    console.log("Bounty PDA:", bountyPda.toBase58());
-    console.log("Vault PDA:", vaultPda.toBase58());
   });
 
   // ── CREATE BOUNTY ───────────────────────────────────────────────────────────────
@@ -208,6 +205,32 @@ describe("bounty", () => {
       );
 
     })
+
+    it("allows multiple funders to top up the vault", async () => {
+      const extraFund = new BN(50 * 10 ** MINT_DECIMALS);
+
+      // Fund from creator's token account as a second funder
+      await program.methods
+        .fundBounty(extraFund)
+        .accounts({
+          funder:             creator.publicKey,
+          funderTokenAccount: creatorTokenAccount,
+          bounty:             bountyPda,
+          vault:              vaultPda,
+          mint,
+          tokenProgram:       TOKEN_PROGRAM_ID,
+        })
+        .signers([creator])
+        .rpc();
+
+      const vaultBalance = await getTokenBalance(conn, vaultPda);
+      // 200 + 50 = 250
+      assert.equal(
+        vaultBalance.toString(),
+        new BN(250 * 10 ** MINT_DECIMALS).toString()
+      );
+    });
+
   })
 
 });
